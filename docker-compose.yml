@@ -1,0 +1,31 @@
+services:
+  worker-riot:
+    build:
+      context: ./RIOT
+    container_name: worker-riot
+    restart: always
+    depends_on:
+      - bdd-service
+    networks:
+      - bot-discord-lol-network
+
+  bdd-service:
+    image: postgres:latest
+    container_name: bdd-service
+    restart: always
+    environment:
+      - POSTGRES_USER=neil
+      - POSTGRES_PASSWORD=neilpassword
+      - POSTGRES_DB=bot_discord_lol_db
+    volumes:
+      - bdd-data:/var/lib/postgresql/data
+    networks:
+      - bot-discord-lol-network
+
+  
+
+  networks:
+    bot-discord-lol-network:
+      driver: bridge
+
+    

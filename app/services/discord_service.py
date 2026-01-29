@@ -1,5 +1,5 @@
 from datetime import time
-from discord.ext import tasks # Import important
+from discord.ext import tasks
 import discord
 
 class DiscordService:

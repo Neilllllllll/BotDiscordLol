@@ -1,57 +1,43 @@
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from app.models import AccountMonitor
 import time
 
 class BddService:
-    def __init__(self, host="db", database="botdb", user="user", password="password", port=5432):
-        self.conn_params = {
-            "host": host,
-            "database": database,
-            "user": user,
-            "password": password,
-            "port": port
-        }
-        self.conn = self._connect_with_retry()
-        self._setup_tables()
+    def __init__(self, host, database, user, password, port):
+        db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        # 1. Création du moteur de base de données
+        self.engine = create_engine(db_url)
+        
+        # 2. Création d'une "usine" à sessions
+        self.SessionLocal = sessionmaker(bind=self.engine)
+        
+        # 3. Attente de la BDD et création des tables
+        self._init_db()
 
-    def _connect_with_retry(self):
-        while True:
+    def _init_db(self):
+        retries = 5
+        while retries > 0:
             try:
-                conn = psycopg2.connect(**self.conn_params)
-                print("Connexion à PostgreSQL réussie !")
-                return conn
-            except psycopg2.OperationalError:
-                print("La BDD n'est pas prête, nouvelle tentative dans 2 secondes...")
+                # Crée les tables définies dans "Base" si elles n'existent pas
+                AccountMonitor.metadata.create_all(self.engine)
+                print("Tables synchronisées avec succès !")
+                break
+            except Exception as e:
+                print(f"Erreur connexion ({retries} essais restants): {e}")
+                retries -= 1
                 time.sleep(2)
 
-    def _setup_tables(self):
-        """Crée la structure initiale."""
-        with self.conn.cursor() as cursor:
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS citations (
-                    id SERIAL PRIMARY KEY, 
-                    texte TEXT NOT NULL
-                )
-            """)
-            # Vérification si vide
-            cursor.execute("SELECT count(*) FROM citations")
-            if cursor.fetchone()[0] == 0:
-                citations = [
-                    ("La persévérance est la clé du succès.",),
-                    ("Le code est comme l'humour, s'il faut l'expliquer, c'est qu'il est mauvais.",),
-                    ("Hello World!",)
-                ]
-                cursor.executemany("INSERT INTO citations (texte) VALUES (%s)", citations)
-            self.conn.commit()
+    def save_account(self, account_data: AccountMonitor):
+        """Ajoute ou met à jour un compte."""
+        with self.SessionLocal() as session:
+            with session.begin(): # Gère automatiquement le commit/rollback
+                # merge vérifie si l'ID existe : il update si oui, insert si non
+                session.merge(account_data)
 
-    def get_random_citation(self):
-        """Récupère une citation au hasard."""
-        with self.conn.cursor() as cursor:
-            # PostgreSQL utilise 'RANDOM()' au lieu de 'RANDOM()' (SQLite)
-            cursor.execute("SELECT texte FROM citations ORDER BY RANDOM() LIMIT 1")
-            result = cursor.fetchone()
-            return result[0] if result else "Pas de données."
-
-    def close(self):
-        if self.conn:
-            self.conn.close()
+    def get_all_accounts(self):
+        """Récupère tous les comptes."""
+        with self.SessionLocal() as session:
+            # Nouveau style SQLAlchemy 2.0 (select)
+            stmt = select(AccountMonitor)
+            return session.scalars(stmt).all()

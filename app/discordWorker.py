@@ -1,4 +1,4 @@
-from app.services import DiscordService
+from app.services.discord_service import DiscordService
 from app.services import BddService
 from app.config.config import DISCORD_TOKEN, CHANNEL_ID, DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT
 

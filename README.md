@@ -1,0 +1,1 @@
+![Image missing](./assets/architecture.png "Architecture de l'app")
